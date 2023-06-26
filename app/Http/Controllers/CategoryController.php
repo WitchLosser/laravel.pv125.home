@@ -113,14 +113,18 @@ class CategoryController extends Controller
             $image = $request->file('image');
 
             $destinationPath = public_path('/uploads');
-            $input['image'] = '150x150_'.time().'.'.$image->getClientOriginalExtension();
-            $imgFile = Image::make($image->getRealPath());
+
+            $imageName = uniqid() .'.'.$image->getClientOriginalExtension();
+
+            $imgFile = Image::make($image);
+
             $imgFile->resize(150, 150, function ($constraint) {
                 $constraint->aspectRatio();
-            })->save($destinationPath . '/' . $input['image'] );
+            })->save($destinationPath . '/' . '150x150_'. $imageName );
 
-            $input['image'] = time().'.'.$image->getClientOriginalExtension();
-            $image->move($destinationPath, $input['image']);
+            $image->move($destinationPath, $imageName);
+            $input['image'] = $imageName;
+
         }
         $category = Category::create($input);
         return response()->json($category, 200,
