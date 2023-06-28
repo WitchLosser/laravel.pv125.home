@@ -117,11 +117,11 @@
                                     "name"
                                 ],
                                 "properties": {
-                                    "image": {
-                                        "type": "file"
-                                    },
                                     "name": {
                                         "type": "string"
+                                    },
+                                    "image": {
+                                        "type": "file"
                                     },
                                     "description": {
                                         "type": "string"
@@ -134,7 +134,7 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Add Category."
+                        "description": "Edit Category."
                     }
                 }
             }
@@ -166,6 +166,38 @@
                     },
                     "401": {
                         "description": "Не авторизований"
+                    }
+                }
+            }
+        },
+        "/api/getImage/{image}": {
+            "get": {
+                "tags": [
+                    "Image"
+                ],
+                "summary": "Retrieve an image by filename",
+                "description": "Retrieve an image file based on the provided filename",
+                "operationId": "getImage",
+                "parameters": [
+                    {
+                        "name": "image",
+                        "in": "path",
+                        "description": "Filename of the image to retrieve",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Image file retrieved successfully",
+                        "content": {
+                            "image/*": {}
+                        }
+                    },
+                    "404": {
+                        "description": "Image file not found"
                     }
                 }
             }

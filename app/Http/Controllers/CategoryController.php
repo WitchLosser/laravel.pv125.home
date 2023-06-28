@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
 use Validator;
 
@@ -112,18 +111,7 @@ class CategoryController extends Controller
         if ($request->hasFile('image')) {
             $image = $request->file('image');
 
-            $destinationPath = public_path('/uploads');
-
-            $imageName = uniqid() .'.'.$image->getClientOriginalExtension();
-
-            $imgFile = Image::make($image);
-
-            $imgFile->resize(150, 150, function ($constraint) {
-                $constraint->aspectRatio();
-            })->save($destinationPath . '/' . '150x150_'. $imageName );
-
-            $image->move($destinationPath, $imageName);
-            $input['image'] = $imageName;
+            $input = $this->imageCreate($image, $input);
 
         }
         $category = Category::create($input);
@@ -151,13 +139,13 @@ class CategoryController extends Controller
      *             @OA\Schema(
      *                 required={"name"},
      *                 @OA\Property(
-     *                     property="image",
-     *                     type="file"
-     *                 ),
-     *                 @OA\Property(
      *                     property="name",
      *                     type="string"
      *                 ),
+     *                   @OA\Property(
+     *                       property="image",
+     *                       type="file"
+     *                   ),
      *                 @OA\Property(
      *                     property="description",
      *                     type="string"
@@ -165,7 +153,7 @@ class CategoryController extends Controller
      *             )
      *         )
      *     ),
-     *     @OA\Response(response="200", description="Add Category.")
+     *     @OA\Response(response="200", description="Edit Category.")
      * )
      */
     public function update($id, Request $request)
@@ -179,26 +167,19 @@ class CategoryController extends Controller
         );
         $validator = Validator::make($input, [
             'name' => 'required',
-            'image' => 'required|image|mimes:jpg,jpeg,png,gif,svg|max:2048',
+            'image' => 'required|image|mimes:jpg,jpeg,png,gif,svg',
             'description' => 'required'
         ], $message);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400,
                 ['Content-Type' => 'application/json;charset=UTF-8', 'Charset' => 'utf-8'], JSON_UNESCAPED_UNICODE);
         }
-        if ($request->hasFile('image') && $category['image'] != $input['image']) {
-            unlink(public_path('/thumbnail') .'/'. $category['image']);
-            unlink(public_path('/uploads') .'/'. $category['image']);
-            $image = $request->file('image');
+        if ($request->hasFile('image')) {
+            $image = $input['image'];
 
-            $destinationPath = public_path('/uploads');
-            $input['image'] ='150x150_'. time().'.'.$image->getClientOriginalExtension();
-            $imgFile = Image::make($image->getRealPath());
-            $imgFile->resize(150, 150, function ($constraint) {
-                $constraint->aspectRatio();
-            })->save($destinationPath . '/' . $input['image'] );
-            $input['image'] = time().'.'.$image->getClientOriginalExtension();
-            $image->move($destinationPath, $input['image']);
+            $input = $this->imageCreate($image, $input);
+            unlink(public_path('uploads/') . '150x150_' . $category['image']);
+            unlink(public_path('uploads/') . $category['image']);
         }
         $category->update($input);
         return response()->json($category, 200,
@@ -233,7 +214,7 @@ class CategoryController extends Controller
      *     )
      * )
      */
-    public function delete(Request $request, $id)
+    public function delete($id)
     {
         $category = Category::findOrFail($id);
         if (file_exists(public_path('uploads') .'/'. $category['image']))
@@ -242,5 +223,27 @@ class CategoryController extends Controller
             unlink(public_path('uploads') .'/'. '150x150_' . $category['image']);
         $category->delete();
         return 204;
+    }
+
+    /**
+     * @param $image
+     * @param array $input
+     * @return array
+     */
+    public function imageCreate($image, array $input): array
+    {
+        $destinationPath = public_path('uploads');
+
+        $imageName = uniqid() . '.' . $image->getClientOriginalExtension();
+
+        $imgFile = Image::make($image);
+
+        $imgFile->resize(150, 150, function ($constraint) {
+            $constraint->aspectRatio();
+        })->save($destinationPath . '/' . '150x150_' . $imageName);
+
+        $image->move($destinationPath, $imageName);
+        $input['image'] = $imageName;
+        return $input;
     }
 }
