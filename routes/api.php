@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ProductController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -23,4 +25,20 @@ Route::post("/category", [CategoryController::class, "store"]);
 Route::post("/category/edit/{id}", [CategoryController::class, "update"]);
 Route::delete("/category/{id}", [CategoryController::class, "delete"]);
 Route::get('/category/{id}', [CategoryController::class, "getById"]);
-Route::get('/getImage/{image}', [\App\Http\Controllers\ImageController::class, "getImage"]);
+
+Route::get("/product", [ProductController::class, "index"]);
+Route::post("/product", [ProductController::class, "store"]);
+Route::post("/product/edit/{id}", [ProductController::class, "update"]);
+Route::delete("/product/{id}", [ProductController::class, "delete"]);
+Route::get('/product/{id}', [ProductController::class, "getByid"]);
+
+Route::group([
+    'middleware' => 'api',
+    'prefix' => 'auth'
+], function ($router) {
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/refresh', [AuthController::class, 'refresh']);
+    Route::get('/user-profile', [AuthController::class, 'userProfile']);
+});

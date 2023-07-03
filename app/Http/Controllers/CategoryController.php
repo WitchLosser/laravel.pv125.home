@@ -71,14 +71,14 @@ class CategoryController extends Controller
      *         @OA\MediaType(
      *             mediaType="multipart/form-data",
      *             @OA\Schema(
-     *                 required={"name"},
+     *                 required={"name","image","description"},
+     *                 @OA\Property(
+     *                     property="image",
+     *                     type="file",
+     *                 ),
      *                 @OA\Property(
      *                     property="name",
      *                     type="string"
-     *                 ),
-     *                  @OA\Property(
-     *                     property="image",
-     *                     type="file"
      *                 ),
      *                 @OA\Property(
      *                     property="description",
@@ -90,34 +90,46 @@ class CategoryController extends Controller
      *     @OA\Response(response="200", description="Add Category.")
      * )
      */
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $input = $request->all();
         $message = array(
-            'name.required' => "Вкажіть назву категорії",
-            'image.required' => "Вкажіть фото категорії",
-            'description.required' => "Вкажіть опис категорії",
+            'name.required'=>"Вкажіть назву категорії",
+            'image.required'=>"Вкажіть фото категорії",
+            'description.required'=>"Вкажіть опис категорії",
         );
-        $validator = Validator::make($input, [
-            'name' => 'required',
-            'image' => 'required|image|mimes:jpg,jpeg,png,gif,svg',
-            'description' => 'required'
+        $validator = Validator::make($input,[
+            'name'=>'required',
+            'image'=>'required',
+            'description'=>'required'
         ], $message);
-        if ($validator->fails()) {
+        if($validator->fails()) {
             return response()->json($validator->errors(), 400,
                 ['Content-Type' => 'application/json;charset=UTF-8', 'Charset' => 'utf-8'], JSON_UNESCAPED_UNICODE);
         }
 
         if ($request->hasFile('image')) {
             $image = $request->file('image');
-
-            $input = $this->imageCreate($image, $input);
-
+            // Generate a unique filename
+            $filename = uniqid() . '.' . $image->getClientOriginalExtension();
+            $sizes = [50, 150, 300, 600, 1200];
+            foreach ($sizes as $size)
+            {
+                $fileSave = $size.'_'.$filename;
+                // Resize the image while maintaining aspect ratio
+                $resizedImage = Image::make($image)->resize($size, null, function ($constraint) {
+                    $constraint->aspectRatio();
+                })->encode();
+                // Save the resized image
+                $path = public_path('uploads/' . $fileSave);
+                file_put_contents($path, $resizedImage);
+            }
+            $input['image'] = $filename;
         }
         $category = Category::create($input);
         return response()->json($category, 200,
             ['Content-Type' => 'application/json;charset=UTF-8', 'Charset' => 'utf-8'], JSON_UNESCAPED_UNICODE);
     }
+
 
     /**
      * @OA\Post(
@@ -139,13 +151,13 @@ class CategoryController extends Controller
      *             @OA\Schema(
      *                 required={"name"},
      *                 @OA\Property(
+     *                     property="image",
+     *                     type="string"
+     *                 ),
+     *                 @OA\Property(
      *                     property="name",
      *                     type="string"
      *                 ),
-     *                   @OA\Property(
-     *                       property="image",
-     *                       type="file"
-     *                   ),
      *                 @OA\Property(
      *                     property="description",
      *                     type="string"
@@ -153,42 +165,65 @@ class CategoryController extends Controller
      *             )
      *         )
      *     ),
-     *     @OA\Response(response="200", description="Edit Category.")
+     *     @OA\Response(response="200", description="Add Category.")
      * )
      */
-    public function update($id, Request $request)
-    {
-        $category = Category::findorFail($id);;
+    public function update($id, Request $request) {
+        $category = Category::findOrFail($id);
         $input = $request->all();
         $message = array(
-            'name.required' => "Вкажіть назву категорії",
-            'image.required' => "Вкажіть фото категорії",
-            'description.required' => "Вкажіть опис категорії",
+            'name.required'=>"Вкажіть назву категорії",
+            'description.required'=>"Вкажіть опис категорії",
         );
-        $validator = Validator::make($input, [
-            'name' => 'required',
-            'image' => 'required|image|mimes:jpg,jpeg,png,gif,svg',
-            'description' => 'required'
+        $validator = Validator::make($input,[
+            'name'=>'required',
+            'description'=>'required'
         ], $message);
-        if ($validator->fails()) {
+        if($validator->fails()) {
             return response()->json($validator->errors(), 400,
                 ['Content-Type' => 'application/json;charset=UTF-8', 'Charset' => 'utf-8'], JSON_UNESCAPED_UNICODE);
         }
-        if ($request->hasFile('image')) {
-            $image = $input['image'];
 
-            $input = $this->imageCreate($image, $input);
-            unlink(public_path('uploads/') . '150x150_' . $category['image']);
-            unlink(public_path('uploads/') . $category['image']);
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            // Generate a unique filename
+            $filename = uniqid() . '.' . $image->getClientOriginalExtension();
+            $sizes = [50, 150, 300, 600, 1200];
+            //remove old images
+            foreach ($sizes as $size) {
+                $fileDelete = $size.'_'.$category->image;
+                $removePath = public_path('uploads/' . $fileDelete);
+                if (file_exists($removePath)) {
+                    unlink($removePath);
+                }
+            }
+
+            foreach ($sizes as $size)
+            {
+                $fileSave = $size.'_'.$filename;
+                // Resize the image while maintaining aspect ratio
+                $resizedImage = Image::make($image)->resize($size, null, function ($constraint) {
+                    $constraint->aspectRatio();
+                })->encode();
+                // Save the resized image
+                $path = public_path('uploads/' . $fileSave);
+                file_put_contents($path, $resizedImage);
+            }
+            $input['image'] = $filename;
         }
+        else {
+            $input['image'] = $category->image;
+        }
+
         $category->update($input);
         return response()->json($category, 200,
             ['Content-Type' => 'application/json;charset=UTF-8', 'Charset' => 'utf-8'], JSON_UNESCAPED_UNICODE);
     }
 
+
     /**
      * @OA\Delete(
-     *     path="/api/category/delete/{id}",
+     *     path="/api/category/{id}",
      *     tags={"Category"},
      *     @OA\Parameter(
      *         name="id",
@@ -214,36 +249,18 @@ class CategoryController extends Controller
      *     )
      * )
      */
-    public function delete($id)
-    {
+    public function delete(Request $request, $id) {
         $category = Category::findOrFail($id);
-        if (file_exists(public_path('uploads') .'/'. $category['image']))
-        unlink(public_path('uploads') .'/'. $category['image']);
-        if (file_exists(public_path('uploads') .'/'. '150x150_' . $category['image']))
-            unlink(public_path('uploads') .'/'. '150x150_' . $category['image']);
+        $sizes = [50, 150, 300, 600, 1200];
+        //remove old images
+        foreach ($sizes as $size) {
+            $fileDelete = $size.'_'.$category->image;
+            $removePath = public_path('uploads/' . $fileDelete);
+            if (file_exists($removePath)) {
+                unlink($removePath);
+            }
+        }
         $category->delete();
         return 204;
-    }
-
-    /**
-     * @param $image
-     * @param array $input
-     * @return array
-     */
-    public function imageCreate($image, array $input): array
-    {
-        $destinationPath = public_path('uploads');
-
-        $imageName = uniqid() . '.' . $image->getClientOriginalExtension();
-
-        $imgFile = Image::make($image);
-
-        $imgFile->resize(150, 150, function ($constraint) {
-            $constraint->aspectRatio();
-        })->save($destinationPath . '/' . '150x150_' . $imageName);
-
-        $image->move($destinationPath, $imageName);
-        $input['image'] = $imageName;
-        return $input;
     }
 }
