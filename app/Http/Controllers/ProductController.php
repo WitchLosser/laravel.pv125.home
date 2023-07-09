@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\ProductImage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Validator;
 class ProductController extends Controller
 {
@@ -33,7 +34,7 @@ class ProductController extends Controller
      *         @OA\MediaType(
      *             mediaType="multipart/form-data",
      *             @OA\Schema(
-     *                 required={"category_id","name","price","description","images"},
+     *                 required={"category_id","name","price","description","images[]"},
      *                 @OA\Property(
      *                     property="category_id",
      *                     type="integer"
@@ -51,7 +52,7 @@ class ProductController extends Controller
      *                     type="string"
      *                 ),
      *                 @OA\Property(
-     *                     property="images",
+     *                     property="images[]",
      *                     type="array",
      *                     @OA\Items(type="string", format="binary")
      *                 )
@@ -76,17 +77,15 @@ class ProductController extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
-        $images = $request->file('images');
         $product = Product::create($input);
 
         if ($request->hasFile('images')) {
-
-            foreach ($images as $key => $image) {
+            $images = $request->file('images');
+            $i =1;
+            foreach ($images as  $image) {
                 $filename = uniqid() . '.' . $image->getClientOriginalExtension();
-                $priority = $key;
-
+                $priority = $i++;
                 $image->move(public_path('uploads/product'), $filename);
-
                 ProductImage::create([
                     'product_id' => $product->id,
                     'name' => $filename,
@@ -149,7 +148,7 @@ class ProductController extends Controller
      *         @OA\MediaType(
      *             mediaType="multipart/form-data",
      *             @OA\Schema(
-     *                 required={"category_id","name","price","description","images"},
+     *                 required={"category_id","name","price","description","images[]"},
      *                 @OA\Property(
      *                     property="category_id",
      *                     type="integer"
@@ -167,7 +166,7 @@ class ProductController extends Controller
      *                     type="string"
      *                 ),
      *                 @OA\Property(
-     *                     property="images",
+     *                     property="images[]",
      *                     type="array",
      *                     @OA\Items(type="string", format="binary")
      *                 )
@@ -179,7 +178,7 @@ class ProductController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $product = Product::find($id);
+        $product = Product::with('product_images')->find($id);
 
         if (!$product) {
             return response()->json(['message' => 'Product not found'], 404, [
@@ -202,8 +201,8 @@ class ProductController extends Controller
             'name' => 'required',
             'price' => 'required',
             'description' => 'required',
-            'images' => 'required',
-
+            'images' => 'required|array',
+            'images.*' => 'image|mimes:jpeg,png,jpg',
         ], $message);
 
         if ($validator->fails()) {
@@ -212,6 +211,7 @@ class ProductController extends Controller
                 'Charset' => 'utf-8'
             ], JSON_UNESCAPED_UNICODE);
         }
+
         $productImages = $product->product_images;
         foreach ($productImages as $productImage) {
             // Delete the file
@@ -220,34 +220,24 @@ class ProductController extends Controller
                 File::delete($filePath);
             }
         }
+
         $product->update($input);
 
         if ($request->hasFile('images')) {
             $images = $request->file('images');
-
-            foreach ($images as $key => $image) {
-                // Generate a unique filename
+            $i =1;
+            foreach ($images as  $image) {
                 $filename = uniqid() . '.' . $image->getClientOriginalExtension();
-                $priority = $key; // Use the key as the priority value
-
-                // Save the image
-                $path = public_path('uploads/product/' . $filename);
+                $priority = $i++;
                 $image->move(public_path('uploads/product'), $filename);
-
-                // Delete the previous image if exists
-                if ($product->images[$key] && file_exists(public_path('uploads/product/' . $product->images[$key]->name))) {
-                    unlink(public_path('uploads/product/' . $product->images[$key]->name));
-                }
-
-                // Create or update the product image record
-                $product->images()->updateOrCreate(
-                    ['priority' => $priority],
+                $productImage = ProductImage::updateOrCreate(
+                    ['product_id' => $product->id, 'priority' => $priority],
                     ['name' => $filename]
                 );
             }
         }
 
-        $product->load('category', 'images');
+        $product->load('category', 'product_images');
 
         return response()->json($product, 200, [
             'Content-Type' => 'application/json;charset=UTF-8',
@@ -271,7 +261,7 @@ class ProductController extends Controller
      */
     public function delete($id)
     {
-        $product = Product::find($id);
+        $product = Product::with('product_images')->find($id);
 
         if (!$product) {
             return response()->json(['message' => 'Product not found'], 404, [
@@ -279,15 +269,17 @@ class ProductController extends Controller
                 'Charset' => 'utf-8'
             ], JSON_UNESCAPED_UNICODE);
         }
+
         $productImages = $product->product_images;
         foreach ($productImages as $productImage) {
             // Delete the file
-            $filePath = public_path('uploads/product' . $productImage->name);
+            $filePath = public_path('uploads/product/' . $productImage->name);
             if (File::exists($filePath)) {
                 File::delete($filePath);
             }
         }
 
+        $product->product_images()->delete();
         $product->delete();
 
         return response()->json(null, 204, [

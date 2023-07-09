@@ -357,7 +357,7 @@
                                     "name",
                                     "price",
                                     "description",
-                                    "images"
+                                    "images[]"
                                 ],
                                 "properties": {
                                     "category_id": {
@@ -372,7 +372,7 @@
                                     "description": {
                                         "type": "string"
                                     },
-                                    "images": {
+                                    "images[]": {
                                         "type": "array",
                                         "items": {
                                             "type": "string",
@@ -464,7 +464,7 @@
                                     "name",
                                     "price",
                                     "description",
-                                    "images"
+                                    "images[]"
                                 ],
                                 "properties": {
                                     "category_id": {
@@ -479,7 +479,7 @@
                                     "description": {
                                         "type": "string"
                                     },
-                                    "images": {
+                                    "images[]": {
                                         "type": "array",
                                         "items": {
                                             "type": "string",
