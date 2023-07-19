@@ -25,6 +25,7 @@ class User extends Authenticatable implements JWTSubject
         'phone',
         'image',
         'lastName',
+        'role_id',
     ];
 
     /**
@@ -46,6 +47,11 @@ class User extends Authenticatable implements JWTSubject
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.
      *
@@ -60,6 +66,10 @@ class User extends Authenticatable implements JWTSubject
      * @return array
      */
     public function getJWTCustomClaims() {
-        return [];
+        return [
+            "email" => $this->email,
+            "name" => $this->name,
+            "role"=>$this->role->name
+        ];
     }
 }
